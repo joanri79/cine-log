@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { searchMulti, getDetails } from '@/lib/tmdb'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
@@ -9,14 +9,27 @@ export default function LoggerPage() {
     const [results, setResults] = useState<any[]>([])
     const [selected, setSelected] = useState<any>(null)
     const [form, setForm] = useState({
-        platform: 'Netflix',
+        platform: '',
         note: 5,
         comment: '',
         date: new Date().toISOString().split('T')[0]
     })
+    const [platforms, setPlatforms] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const router = useRouter()
+
+    useEffect(() => {
+        const fetchPlatforms = async () => {
+            const { data } = await supabase.from('plataformas').select('*').order('descripcion')
+            if (data) {
+                setPlatforms(data)
+                // Set default if exists
+                if (data.length > 0) setForm(prev => ({ ...prev, platform: data[0].codigo }))
+            }
+        }
+        fetchPlatforms()
+    }, [])
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -166,8 +179,8 @@ export default function LoggerPage() {
                                 value={form.platform}
                                 onChange={e => setForm({ ...form, platform: e.target.value })}
                             >
-                                {['Cine', 'Netflix', 'Prime Video', 'Disney+', 'HBO Max', 'Apple TV', 'Sky Showtime', 'Televisión'].map(p => (
-                                    <option key={p} value={p}>{p}</option>
+                                {platforms.map(p => (
+                                    <option key={p.codigo} value={p.codigo}>{p.descripcion || p.codigo}</option>
                                 ))}
                             </select>
                         </div>

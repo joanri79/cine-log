@@ -30,6 +30,7 @@ export default function Navbar() {
 
     const links = [
         { href: '/', label: 'Dashboard' },
+        { href: '/social', label: 'Social' },
         { href: '/logger', label: 'Registrar Visionado' },
     ]
 

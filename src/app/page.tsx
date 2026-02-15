@@ -2,11 +2,17 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import FriendsActivityFeed from '@/components/FriendsActivityFeed'
+import EditLogModal from '@/components/EditLogModal'
+import { getFriendsActivity } from '@/lib/social'
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<any[]>([])
+  const [friendsActivity, setFriendsActivity] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [editingLog, setEditingLog] = useState<any>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     const getData = async () => {
@@ -33,11 +39,40 @@ export default function Dashboard() {
         .eq('usuario_id', user.id)
         .order('fecha_hora', { ascending: false })
 
+      const activity = await getFriendsActivity(user.id)
+      setFriendsActivity(activity)
+
       if (data) setLogs(data)
       setLoading(false)
     }
     getData()
+    getData()
   }, [])
+
+  const handleEditClick = (log: any) => {
+    setEditingLog(log)
+    setIsEditModalOpen(true)
+  }
+
+  const handleUpdateLog = async (updatedLog: any) => {
+    const { error } = await supabase
+      .from('visionados')
+      .update({
+        nota: updatedLog.nota,
+        fecha_hora: updatedLog.fecha_hora,
+        plataforma_id: updatedLog.plataforma_id,
+        comentarios: updatedLog.comentarios
+      })
+      .eq('id', updatedLog.id)
+
+    if (error) {
+      throw error
+    }
+
+    // Update local state
+    setLogs(prev => prev.map(l => l.id === updatedLog.id ? updatedLog : l))
+    setEditingLog(null)
+  }
 
   if (loading) return <div className="flex justify-center items-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div></div>
   if (!user) return (
@@ -193,49 +228,67 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Logs Column */}
-        <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-xl border border-slate-800 shadow-lg h-fit">
-          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-            Últimos Visionados
-          </h2>
-          <div className="space-y-4">
-            {logs.slice(0, 5).map((log: any) => (
-              <div key={log.id} className="flex gap-4 items-center group p-3 rounded-lg hover:bg-slate-800 transition-all border border-transparent hover:border-slate-700">
-                {log.contenidos?.poster_path ? (
-                  <img src={`https://image.tmdb.org/t/p/w92${log.contenidos.poster_path}`} alt={log.contenidos.titulo} className="w-12 h-18 object-cover rounded shadow-md group-hover:scale-105 transition-transform" />
-                ) : (
-                  <div className="w-12 h-18 bg-slate-800 rounded flex items-center justify-center text-xs text-slate-500">No img</div>
-                )}
+        {/* Right Column */}
+        <div className="space-y-6">
+          <FriendsActivityFeed activities={friendsActivity} />
 
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-white truncate group-hover:text-blue-400 transition-colors">{log.contenidos?.titulo}</h3>
-                  <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
-                    <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
-                      {log.plataforma_id}
-                    </span>
-                    <span>{new Date(log.fecha_hora).toLocaleDateString()}</span>
+          <div className="bg-slate-900/50 backdrop-blur-md p-6 rounded-xl border border-slate-800 shadow-lg h-fit">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+              Últimos Visionados
+            </h2>
+            <div className="space-y-4">
+              {logs.slice(0, 5).map((log: any) => (
+                <div key={log.id} className="flex gap-4 items-center group p-3 rounded-lg hover:bg-slate-800 transition-all border border-transparent hover:border-slate-700">
+                  {log.contenidos?.poster_path ? (
+                    <img src={`https://image.tmdb.org/t/p/w92${log.contenidos.poster_path}`} alt={log.contenidos.titulo} className="w-12 h-18 object-cover rounded shadow-md group-hover:scale-105 transition-transform" />
+                  ) : (
+                    <div className="w-12 h-18 bg-slate-800 rounded flex items-center justify-center text-xs text-slate-500">No img</div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white truncate group-hover:text-blue-400 transition-colors">{log.contenidos?.titulo}</h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                        {log.plataforma_id}
+                      </span>
+                      <span>{new Date(log.fecha_hora).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-col items-end">
-                  <span className={`text-lg font-bold ${log.nota >= 8 ? 'text-green-500' : log.nota >= 5 ? 'text-yellow-500' : 'text-red-500'}`}>
-                    {log.nota}
-                  </span>
-                  <span className="text-[10px] text-slate-500">/10</span>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-lg font-bold ${log.nota >= 8 ? 'text-green-500' : log.nota >= 5 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {log.nota}
+                    </span>
+                    <span className="text-[10px] text-slate-500">/10</span>
+                  </div>
+
+                  <button
+                    onClick={() => handleEditClick(log)}
+                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition-all p-2"
+                    title="Editar"
+                  >
+                    ✏️
+                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
-          {logs.length > 5 && (
-            <div className="mt-6 text-center">
-              <button className="text-sm font-medium text-slate-400 hover:text-white transition-colors border-b border-dashed border-slate-600 hover:border-white pb-0.5">
-                Ver historial completo
-              </button>
+              ))}
             </div>
-          )}
+            {logs.length > 5 && (
+              <div className="mt-6 text-center">
+                <a href="/history" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border-b border-dashed border-slate-600 hover:border-white pb-0.5">
+                  Ver historial completo
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      <EditLogModal
+        log={editingLog}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleUpdateLog}
+      />
+    </div >
   )
 }
