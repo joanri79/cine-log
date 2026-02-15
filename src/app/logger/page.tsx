@@ -8,7 +8,12 @@ export default function LoggerPage() {
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<any[]>([])
     const [selected, setSelected] = useState<any>(null)
-    const [form, setForm] = useState({ platform: 'Netflix', note: 5, comment: '' })
+    const [form, setForm] = useState({
+        platform: 'Netflix',
+        note: 5,
+        comment: '',
+        date: new Date().toISOString().split('T')[0]
+    })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const router = useRouter()
@@ -54,7 +59,8 @@ export default function LoggerPage() {
             tipo: selected.media_type,
             año: parseInt((selected.release_date || selected.first_air_date || '0').substring(0, 4)),
             genero: selected.genres?.map((g: any) => g.name).join(', ') || '',
-            duracion: selected.runtime || (selected.episode_run_time ? selected.episode_run_time[0] : 0) || 0
+            duracion: selected.runtime || (selected.episode_run_time ? selected.episode_run_time[0] : 0) || 0,
+            poster_path: selected.poster_path
         }
 
         const { data: content, error: contentError } = await supabase
@@ -64,7 +70,7 @@ export default function LoggerPage() {
             .single()
 
         if (contentError) {
-            console.error(contentError)
+            console.error('Error creating content:', contentError)
             setError('Error al guardar el contenido')
             setLoading(false)
             return
@@ -75,7 +81,8 @@ export default function LoggerPage() {
             contenido_id: content.id,
             plataforma_id: form.platform,
             nota: form.note,
-            comentarios: form.comment
+            comentarios: form.comment,
+            fecha_hora: form.date ? new Date(form.date).toISOString() : new Date().toISOString()
         })
 
         if (visionError) {
@@ -142,6 +149,16 @@ export default function LoggerPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-1">Fecha de Visionado</label>
+                            <input
+                                type="date"
+                                className="w-full p-3 rounded bg-slate-800 border border-slate-700 text-white outline-none focus:border-red-500 [color-scheme:dark]"
+                                value={form.date}
+                                onChange={e => setForm({ ...form, date: e.target.value })}
+                            />
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-slate-400 mb-1">Plataforma</label>
                             <select
